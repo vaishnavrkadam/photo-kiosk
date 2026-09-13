@@ -1,0 +1,7 @@
+{
+  "server_url": "http://localhost:5000",
+  "agent_secret": "kiosk-print-secret-2026",
+  "printer_name": "EPSON PM-520 Series",
+  "poll_interval_seconds": 3,
+  "heartbeat_interval_seconds": 15
+}

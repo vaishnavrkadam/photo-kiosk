@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Order Status #{{ order['id'][:12] }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-4 text-center">
+        <h1 class="font-bold text-lg text-white">Smart Photo Kiosk</h1>
+        <p class="text-xs text-slate-400">Order Reference: <span class="font-mono text-amber-400 font-bold">{{ order['id'] }}</span></p>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-8 space-y-6">
+
+        <!-- Status Card -->
+        <div id="statusCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl space-y-4">
+            
+            <!-- Dynamic Status Icon -->
+            <div id="statusIconBox" class="w-20 h-20 mx-auto rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i id="statusIcon" class="fa-solid fa-spinner fa-spin text-3xl"></i>
+            </div>
+
+            <div>
+                <h2 id="statusHeadline" class="text-xl font-black text-white">Payment Received!</h2>
+                <p id="statusSubtext" class="text-sm text-slate-400 mt-1">Preparing your photos for Epson PM-520...</p>
+            </div>
+
+            <!-- Progress Meter -->
+            <div class="space-y-1.5 pt-2">
+                <div class="flex justify-between text-xs font-semibold text-slate-400">
+                    <span>Print Progress</span>
+                    <span id="progressCount">0 / {{ order['total_prints'] }} Prints</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                    <div id="progressBar" class="bg-gradient-to-r from-amber-500 to-rose-500 h-full rounded-full transition-all duration-500" style="width: 10%"></div>
+                </div>
+            </div>
+
+            <!-- Tray Pickup Alert (Hidden until complete) -->
+            <div id="pickupNotice" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-left">
+                <div class="flex items-start space-x-3">
+                    <div class="text-emerald-400 text-xl"><i class="fa-solid fa-circle-check"></i></div>
+                    <div>
+                        <h4 class="text-sm font-bold text-emerald-300">Prints Ready!</h4>
+                        <p class="text-xs text-slate-300 mt-0.5">Please collect your fresh prints from the front output tray of the Epson printer.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Items Summary -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Items in this Print Job</h3>
+            <div class="space-y-3">
+                {% for item in items %}
+                <div class="flex items-center space-x-3 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    <img src="/static/uploads/raw/{{ item['raw_filename'] }}" alt="Photo" class="w-14 h-14 object-cover rounded-lg border border-slate-700">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-200 truncate">{{ item['original_filename'] }}</p>
+                        <p class="text-xs text-slate-400">
+                            {{ item['paper_size'] }} • {{ item['layout_mode']|title }} • {{ item['color_mode']|upper }}
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-bold text-amber-400">{{ item['copies'] }} copy</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="text-center pt-2">
+            <a href="/" class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold border border-slate-700 shadow-md">
+                <i class="fa-solid fa-plus mr-2"></i> Print More Photos
+            </a>
+        </div>
+
+    </main>
+
+    <script>
+        const ORDER_ID = "{{ order['id'] }}";
+        const TOTAL_PRINTS = {{ order['total_prints'] }};
+
+        async function pollStatus() {
+            try {
+                const res = await fetch(`/api/order/${ORDER_ID}/status`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                const status = data.status;
+                const completed = data.completed_jobs;
+                const total = data.total_jobs || TOTAL_PRINTS;
+                const percent = Math.min(100, Math.round((completed / total) * 100));
+
+                const progressBar = document.getElementById('progressBar');
+                const progressCount = document.getElementById('progressCount');
+                const headline = document.getElementById('statusHeadline');
+                const subtext = document.getElementById('statusSubtext');
+                const iconBox = document.getElementById('statusIconBox');
+                const icon = document.getElementById('statusIcon');
+                const pickupNotice = document.getElementById('pickupNotice');
+
+                progressCount.innerText = `${completed} / ${total} Prints`;
+
+                if (status === 'COMPLETED') {
+                    progressBar.style.width = '100%';
+                    headline.innerText = 'Printing Finished!';
+                    headline.className = 'text-xl font-black text-emerald-400';
+                    subtext.innerText = 'All photos have been printed successfully.';
+                    iconBox.className = 'w-20 h-20 mx-auto rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center text-emerald-400';
+                    icon.className = 'fa-solid fa-check text-3xl';
+                    pickupNotice.classList.remove('hidden');
+                    return; // Stop polling
+                } else if (status === 'PRINTING') {
+                    const currentPct = Math.max(15, percent);
+                    progressBar.style.width = `${currentPct}%`;
+                    headline.innerText = 'Printing in Progress...';
+                    subtext.innerText = data.current_copy ? `Printing photo ${data.current_copy} on Epson PM-520` : 'Printing onto photo paper...';
+                    icon.className = 'fa-solid fa-print fa-bounce text-3xl text-amber-400';
+                } else if (status === 'QUEUED') {
+                    progressBar.style.width = '15%';
+                    headline.innerText = 'Job in Print Queue';
+                    subtext.innerText = 'Waiting for printer spooler...';
+                    icon.className = 'fa-solid fa-clock fa-spin text-3xl text-amber-400';
+                }
+
+                // Poll again in 2.5 seconds
+                setTimeout(pollStatus, 2500);
+            } catch (err) {
+                console.error("Status check failed", err);
+                setTimeout(pollStatus, 3000);
+            }
+        }
+
+        // Start polling on load
+        window.addEventListener('DOMContentLoaded', pollStatus);
+    </script>
+</body>
+</html>

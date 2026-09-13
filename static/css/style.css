@@ -1,0 +1,32 @@
+/* Custom styles for Photo Kiosk */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Cropper Modal Dark Overrides */
+.cropper-view-box,
+.cropper-face {
+    border-radius: 4px;
+    outline: 2px solid #f59e0b !important;
+}
+
+.cropper-line, .cropper-point {
+    background-color: #f59e0b !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}

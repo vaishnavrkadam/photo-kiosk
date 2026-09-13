@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: photo-kiosk-portal
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    envVars:
+      - key: IS_CLOUD
+        value: "true"
+      - key: AGENT_SECRET_KEY
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: PASSPORT_PRICE
+        value: "60.0"

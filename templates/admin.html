@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Dashboard - Photo Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-slate-900 border-b border-slate-800 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-bold">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base text-white">Kiosk Operator Dashboard</h1>
+                    <p class="text-xs text-slate-400">Epson PictureMate PM-520 Control</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="testPrintBtn" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-slate-700 flex items-center space-x-2">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Test Print Hardware</span>
+                </button>
+                <a href="/" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5">
+                    <i class="fa-solid fa-external-link"></i>
+                    <span>Open Kiosk UI</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+        <!-- Top Stat Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            
+            <!-- Laptop Print Agent Status -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Laptop Agent</p>
+                <div class="flex items-center space-x-2 mt-2">
+                    <span id="agentStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                    <h3 id="agentStatusText" class="font-bold text-sm text-slate-100 truncate">Checking...</h3>
+                </div>
+                <p id="agentLastSeenText" class="text-[11px] text-slate-500 mt-1">run_agent.bat status</p>
+            </div>
+
+            <!-- Printer Status -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Printer</p>
+                <div class="flex items-center space-x-2 mt-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h3 id="printerNameText" class="font-bold text-sm text-slate-100 truncate">{{ default_printer }}</h3>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">USB 2.0 / Native 756 DPI</p>
+            </div>
+
+            <!-- Queue Depth -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Queue</p>
+                <h3 id="statQueueCount" class="text-2xl font-black text-amber-400 mt-1">0</h3>
+                <p class="text-[11px] text-slate-500">Jobs waiting to print</p>
+            </div>
+
+            <!-- Printed Today -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Printed Today</p>
+                <h3 id="statTodayCount" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
+                <p class="text-[11px] text-slate-500">Photos produced</p>
+            </div>
+
+            <!-- Total Prints -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">All-Time Prints</p>
+                <h3 id="statTotalCount" class="text-2xl font-black text-indigo-400 mt-1">0</h3>
+                <p class="text-[11px] text-slate-500">Total lifetime prints</p>
+            </div>
+        </div>
+
+        <!-- Customer QR Code & Link Banner -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-20 h-20 bg-white p-1.5 rounded-xl flex-shrink-0 shadow-md">
+                    <img src="/kiosk_qr_code.png" alt="Kiosk QR Code" class="w-full h-full object-contain">
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-sm font-bold text-white flex items-center">
+                        <i class="fa-solid fa-qrcode text-amber-400 mr-2"></i>
+                        Customer Mobile Upload Portal
+                    </h3>
+                    <p class="text-xs text-slate-400">
+                        Scan the QR code with any smartphone or open:
+                    </p>
+                    <a id="kioskUrlLink" href="/" target="_blank" class="text-xs font-mono text-amber-400 hover:underline flex items-center">
+                        <span id="kioskUrlText">Loading portal URL...</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square ml-1.5 text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 w-full md:w-auto">
+                <a href="/kiosk_qr_code.png" download="kiosk_qr_code.png" class="flex-1 md:flex-initial text-center px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700">
+                    <i class="fa-solid fa-download mr-1"></i> Save QR Poster
+                </a>
+            </div>
+        </div>
+
+        <!-- Live Spooler Queue -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-list-check text-amber-400 mr-2"></i>
+                    Live Spooler Print Queue
+                </h2>
+                <span id="queueBadge" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                    Auto-refreshes every 3s
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400">
+                            <th class="pb-3 font-semibold">Job ID</th>
+                            <th class="pb-3 font-semibold">Order</th>
+                            <th class="pb-3 font-semibold">Photo</th>
+                            <th class="pb-3 font-semibold">Size</th>
+                            <th class="pb-3 font-semibold">Copy</th>
+                            <th class="pb-3 font-semibold">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queueTableBody" class="divide-y divide-slate-800/60">
+                        <tr>
+                            <td colspan="6" class="py-6 text-center text-slate-500">Queue is currently empty. Ready for orders.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Orders & Reprint Control -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <h2 class="text-base font-bold text-white mb-4 flex items-center">
+                <i class="fa-solid fa-clock-rotate-left text-amber-400 mr-2"></i>
+                Recent Customer Orders
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400">
+                            <th class="pb-3 font-semibold">Order ID</th>
+                            <th class="pb-3 font-semibold">Customer</th>
+                            <th class="pb-3 font-semibold">Amount</th>
+                            <th class="pb-3 font-semibold">Prints</th>
+                            <th class="pb-3 font-semibold">Status</th>
+                            <th class="pb-3 font-semibold">Timestamp</th>
+                            <th class="pb-3 font-semibold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="divide-y divide-slate-800/60">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 z-50 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2 text-xs">
+        <span id="toastIcon"><i class="fa-solid fa-info-circle text-amber-400"></i></span>
+        <span id="toastMsg">Notification message</span>
+    </div>
+
+    <script>
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            toastMsg.innerText = msg;
+            toastIcon.innerHTML = isSuccess ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' : '<i class="fa-solid fa-circle-exclamation text-rose-400"></i>';
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        async function fetchAdminData() {
+            try {
+                // Update dynamic portal URL
+                const portalUrl = window.location.origin;
+                const kioskUrlLink = document.getElementById('kioskUrlLink');
+                const kioskUrlText = document.getElementById('kioskUrlText');
+                if (kioskUrlLink && kioskUrlText) {
+                    kioskUrlLink.href = portalUrl;
+                    kioskUrlText.innerText = portalUrl;
+                }
+
+                const res = await fetch('/api/admin/status');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Agent Status
+                if (data.agent) {
+                    const isOnline = data.agent.is_online;
+                    const dot = document.getElementById('agentStatusDot');
+                    const text = document.getElementById('agentStatusText');
+                    const sub = document.getElementById('agentLastSeenText');
+                    if (isOnline) {
+                        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                        text.innerText = "ONLINE";
+                        text.className = "font-bold text-sm text-emerald-400 truncate";
+                        sub.innerText = (data.agent.printer_name || "Printer Ready");
+                    } else {
+                        dot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
+                        text.innerText = "OFFLINE";
+                        text.className = "font-bold text-sm text-slate-400 truncate";
+                        sub.innerText = "Run run_agent.bat on laptop";
+                    }
+                }
+
+                // Active Printer
+                if (data.active_printer) {
+                    document.getElementById('printerNameText').innerText = data.active_printer;
+                }
+
+                // Stats
+                document.getElementById('statQueueCount').innerText = data.queue.length;
+                document.getElementById('statTodayCount').innerText = data.today_printed;
+                document.getElementById('statTotalCount').innerText = data.total_printed;
+
+                // Queue Table
+                const qBody = document.getElementById('queueTableBody');
+                if (data.queue.length === 0) {
+                    qBody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">Queue is idle. Waiting for prints.</td></tr>';
+                } else {
+                    qBody.innerHTML = data.queue.map(q => `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="py-3 font-mono font-bold text-slate-300">#${q.id}</td>
+                            <td class="py-3 text-slate-300">${q.order_id.substring(0, 15)}...</td>
+                            <td class="py-3 text-slate-300 truncate max-w-[140px]">${q.original_filename}</td>
+                            <td class="py-3 font-semibold text-amber-400">${q.paper_size}</td>
+                            <td class="py-3">${q.copy_number} of ${q.total_copies}</td>
+                            <td class="py-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${q.status === 'PRINTING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse' : 'bg-slate-800 text-slate-300'}">
+                                    ${q.status}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Recent Orders Table
+                const oBody = document.getElementById('ordersTableBody');
+                oBody.innerHTML = data.recent_orders.map(o => `
+                    <tr class="hover:bg-slate-800/30">
+                        <td class="py-3 font-mono font-bold text-slate-200">${o.id.substring(0, 16)}</td>
+                        <td class="py-3 text-slate-300">${o.customer_name || 'Guest'}</td>
+                        <td class="py-3 font-bold text-emerald-400">₹${o.total_amount}</td>
+                        <td class="py-3 text-slate-300">${o.total_prints} prints</td>
+                        <td class="py-3">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' : (o.status === 'PAID' ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400')}">
+                                ${o.status}
+                            </span>
+                        </td>
+                        <td class="py-3 text-slate-400">${o.created_at}</td>
+                        <td class="py-3 text-right">
+                            <button onclick="reprintOrder('${o.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700">
+                                <i class="fa-solid fa-redo mr-1"></i> Reprint
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                console.error("Failed to fetch admin data", err);
+            }
+        }
+
+        async function reprintOrder(orderId) {
+            if (!confirm(`Re-enqueue order ${orderId} to print again?`)) return;
+            try {
+                const res = await fetch('/api/admin/reprint', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({order_id: orderId})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Order ${orderId} sent to print queue!`);
+                    fetchAdminData();
+                } else {
+                    showToast(data.error || 'Reprint failed', false);
+                }
+            } catch (e) {
+                showToast(e.message, false);
+            }
+        }
+
+        document.getElementById('testPrintBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('testPrintBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Sending Test Page...</span>';
+            try {
+                const res = await fetch('/api/admin/test-print', {method: 'POST'});
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Test card dispatched to Epson PM-520!');
+                } else {
+                    showToast(data.message || 'Test print failed', false);
+                }
+            } catch (e) {
+                showToast(e.message, false);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-print"></i> <span>Test Print Hardware</span>';
+            }
+        });
+
+        // Initialize polling
+        fetchAdminData();
+        setInterval(fetchAdminData, 3000);
+    </script>
+</body>
+</html>
