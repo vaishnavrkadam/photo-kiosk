@@ -74,11 +74,65 @@
                 <p class="text-[11px] text-slate-500">Photos produced</p>
             </div>
 
-            <!-- Total Prints -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">All-Time Prints</p>
-                <h3 id="statTotalCount" class="text-2xl font-black text-indigo-400 mt-1">0</h3>
-                <p class="text-[11px] text-slate-500">Total lifetime prints</p>
+        <!-- Paper Sheet Inventory Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <i class="fa-solid fa-layer-group text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-white">Paper Sheet Inventory & Stock Control</h2>
+                        <p class="text-xs text-slate-400">Keep count of photo paper loaded inside the Epson PM-520</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="lowStockWarning" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Low Paper Stock
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                <!-- 4x6 Stock -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300">4 × 6 inch Photo Paper</span>
+                        <span id="stock4x6Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            0 Sheets Available
+                        </span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="flex-1">
+                            <label class="block text-[11px] text-slate-500 mb-1">Set Loaded Sheets:</label>
+                            <input type="number" id="inputStock4x6" min="0" placeholder="e.g. 50" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="updateStock('4x6')" class="self-end px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95">
+                            Update
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Consumed by: Standard 4x6 prints & 8-photo Passport sheets</p>
+                </div>
+
+                <!-- 5x7 Stock -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300">5 × 7 inch Photo Paper</span>
+                        <span id="stock5x7Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            0 Sheets Available
+                        </span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="flex-1">
+                            <label class="block text-[11px] text-slate-500 mb-1">Set Loaded Sheets:</label>
+                            <input type="number" id="inputStock5x7" min="0" placeholder="e.g. 20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="updateStock('5x7')" class="self-end px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95">
+                            Update
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Consumed by: Large 5x7 prints</p>
+                </div>
             </div>
         </div>
 
@@ -226,6 +280,21 @@
                     document.getElementById('printerNameText').innerText = data.active_printer;
                 }
 
+                // Inventory Stock Display
+                if (data.inventory) {
+                    const s4 = data.inventory['4x6'] ? data.inventory['4x6'].available : 0;
+                    const s5 = data.inventory['5x7'] ? data.inventory['5x7'].available : 0;
+                    document.getElementById('stock4x6Badge').innerText = `${s4} Sheets Available`;
+                    document.getElementById('stock5x7Badge').innerText = `${s5} Sheets Available`;
+
+                    const lowWarning = document.getElementById('lowStockWarning');
+                    if (s4 < 5 || s5 < 5) {
+                        lowWarning.classList.remove('hidden');
+                    } else {
+                        lowWarning.classList.add('hidden');
+                    }
+                }
+
                 // Stats
                 document.getElementById('statQueueCount').innerText = data.queue.length;
                 document.getElementById('statTodayCount').innerText = data.today_printed;
@@ -252,18 +321,26 @@
                     `).join('');
                 }
 
-                // Recent Orders Table
+                // Recent Orders Table with Customer Name and Phone
                 const oBody = document.getElementById('ordersTableBody');
                 oBody.innerHTML = data.recent_orders.map(o => `
                     <tr class="hover:bg-slate-800/30">
                         <td class="py-3 font-mono font-bold text-slate-200">${o.id.substring(0, 16)}</td>
-                        <td class="py-3 text-slate-300">${o.customer_name || 'Guest'}</td>
+                        <td class="py-3">
+                            <div class="font-bold text-slate-100">${o.customer_name || 'Customer'}</div>
+                            ${o.customer_phone ? `<div class="text-[11px] text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-amber-400/80 mr-1"></i>${o.customer_phone}</div>` : '<span class="text-[11px] text-slate-500">No phone</span>'}
+                        </td>
                         <td class="py-3 font-bold text-emerald-400">₹${o.total_amount}</td>
                         <td class="py-3 text-slate-300">${o.total_prints} prints</td>
                         <td class="py-3">
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' : (o.status === 'PAID' ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400')}">
-                                ${o.status}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+                                (o.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
+                                'bg-amber-500/20 text-amber-400 border border-amber-500/30')
+                            }">
+                                ${o.status === 'PENDING' && o.error_message ? 'PENDING (RETRY)' : o.status}
                             </span>
+                            ${o.error_message ? `<div class="text-[10px] text-rose-400 mt-0.5 truncate max-w-[140px]" title="${o.error_message}">${o.error_message}</div>` : ''}
                         </td>
                         <td class="py-3 text-slate-400">${o.created_at}</td>
                         <td class="py-3 text-right">
@@ -276,6 +353,32 @@
 
             } catch (err) {
                 console.error("Failed to fetch admin data", err);
+            }
+        }
+
+        async function updateStock(paperSize) {
+            const input = document.getElementById(paperSize === '4x6' ? 'inputStock4x6' : 'inputStock5x7');
+            const val = parseInt(input.value);
+            if (isNaN(val) || val < 0) {
+                showToast("Please enter a valid non-negative number", false);
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/inventory', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ paper_size: paperSize, sheets_available: val })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    showToast(`Updated ${paperSize} stock to ${val} sheets!`);
+                    input.value = '';
+                    fetchAdminData();
+                } else {
+                    showToast(d.error || 'Failed to update stock', false);
+                }
+            } catch (e) {
+                showToast("Failed to update stock: " + e.message, false);
             }
         }
 

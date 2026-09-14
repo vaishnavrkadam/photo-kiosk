@@ -128,8 +128,8 @@ class PrinterService:
                         VALUES (?, ?, ?, ?, ?, 'QUEUED')
                     ''', (order_id, item["id"], copy_num, copies, active_printer))
 
-            # Update order status to QUEUED
-            cursor.execute("UPDATE orders SET status = 'QUEUED' WHERE id = ?", (order_id,))
+            # Update order status to PENDING
+            cursor.execute("UPDATE orders SET status = 'PENDING' WHERE id = ?", (order_id,))
             conn.commit()
             logger.info(f"Order {order_id} enqueued ({len(items)} items)")
 
@@ -175,12 +175,11 @@ class PrinterService:
                 total_copies = job["total_copies"]
                 printer_name = job["printer_name"]
 
-                # Mark as PRINTING
+                # Mark queue job as PRINTING
                 cursor.execute('''
                     UPDATE print_queue SET status = 'PRINTING', started_at = CURRENT_TIMESTAMP, attempts = attempts + 1
                     WHERE id = ?
                 ''', (job_id,))
-                cursor.execute("UPDATE orders SET status = 'PRINTING' WHERE id = ?", (order_id,))
                 conn.commit()
 
             # Execute print outside DB lock
@@ -202,6 +201,10 @@ class PrinterService:
                         UPDATE print_queue SET status = 'FAILED', error_message = ?
                         WHERE id = ?
                     ''', (msg, job_id))
+                    cursor.execute('''
+                        UPDATE orders SET status = 'PENDING', error_message = ?
+                        WHERE id = ?
+                    ''', (f"Print issue: {msg}", order_id))
 
                 # Check if all jobs for this order are completed
                 remaining = cursor.execute('''

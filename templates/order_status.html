@@ -111,24 +111,43 @@
 
                 if (status === 'COMPLETED') {
                     progressBar.style.width = '100%';
-                    headline.innerText = 'Printing Finished!';
+                    progressBar.className = 'bg-emerald-500 h-full rounded-full transition-all duration-500';
+                    headline.innerText = 'Prints Ready!';
                     headline.className = 'text-xl font-black text-emerald-400';
-                    subtext.innerText = 'All photos have been printed successfully.';
+                    subtext.innerText = 'All photos have been printed successfully. Collect them below!';
                     iconBox.className = 'w-20 h-20 mx-auto rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center text-emerald-400';
                     icon.className = 'fa-solid fa-check text-3xl';
                     pickupNotice.classList.remove('hidden');
                     return; // Stop polling
-                } else if (status === 'PRINTING') {
+                } else if (status === 'FAILED') {
+                    progressBar.style.width = '100%';
+                    progressBar.className = 'bg-rose-500 h-full rounded-full';
+                    headline.innerText = 'Order / Payment Failed';
+                    headline.className = 'text-xl font-black text-rose-400';
+                    subtext.innerText = data.error_message || 'The transaction could not be verified.';
+                    iconBox.className = 'w-20 h-20 mx-auto rounded-full bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center text-rose-400';
+                    icon.className = 'fa-solid fa-xmark text-3xl';
+                    return; // Stop polling
+                } else {
+                    // PENDING (either actively spooling or pending operator action)
                     const currentPct = Math.max(15, percent);
                     progressBar.style.width = `${currentPct}%`;
-                    headline.innerText = 'Printing in Progress...';
-                    subtext.innerText = data.current_copy ? `Printing photo ${data.current_copy} on Epson PM-520` : 'Printing onto photo paper...';
-                    icon.className = 'fa-solid fa-print fa-bounce text-3xl text-amber-400';
-                } else if (status === 'QUEUED') {
-                    progressBar.style.width = '15%';
-                    headline.innerText = 'Job in Print Queue';
-                    subtext.innerText = 'Waiting for printer spooler...';
-                    icon.className = 'fa-solid fa-clock fa-spin text-3xl text-amber-400';
+
+                    if (data.current_copy) {
+                        headline.innerText = 'Printing in Progress...';
+                        subtext.innerText = `Printing photo ${data.current_copy} on Epson PM-520...`;
+                        icon.className = 'fa-solid fa-print fa-bounce text-3xl text-amber-400';
+                    } else if (data.error_message) {
+                        headline.innerText = 'Print Pending Operator Attention';
+                        headline.className = 'text-xl font-black text-amber-400';
+                        subtext.innerText = `${data.error_message}. Kiosk operator has been alerted.`;
+                        iconBox.className = 'w-20 h-20 mx-auto rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center text-amber-400';
+                        icon.className = 'fa-solid fa-triangle-exclamation text-3xl text-amber-400';
+                    } else {
+                        headline.innerText = 'Payment Confirmed!';
+                        subtext.innerText = 'Order is queued for printing on Epson PM-520...';
+                        icon.className = 'fa-solid fa-spinner fa-spin text-3xl text-amber-400';
+                    }
                 }
 
                 // Poll again in 2.5 seconds

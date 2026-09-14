@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 
 import config
-from db import init_db, get_db
+from db import init_db, get_db, get_inventory, update_inventory, deduct_inventory, check_inventory_sufficient
 from image_processor import process_photo, generate_passport_grid
 from printer_service import printer_service
 from payment_service import payment_service
@@ -121,6 +121,70 @@ def passport_preview():
         logger.error(f"Error generating passport preview: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/photo/preview', methods=['POST'])
+def photo_preview():
+    """Generates a temporary print-ready preview of standard photo with user crop & layout."""
+    data = request.get_json() or {}
+    raw_filename = data.get('raw_filename')
+    paper_size = data.get('paper_size', '4x6')
+    layout_mode = data.get('layout_mode', 'borderless')
+    color_mode = data.get('color_mode', 'color')
+    crop_box = data.get('crop_box')
+    caption = data.get('caption', '')
+
+    if not raw_filename:
+        return jsonify({'error': 'Missing raw_filename'}), 400
+
+    raw_path = os.path.join(app.config['UPLOAD_FOLDER'], raw_filename)
+    if not os.path.exists(raw_path):
+        return jsonify({'error': 'Image file not found'}), 404
+
+    preview_id = f"prev_std_{uuid.uuid4().hex[:8]}.jpg"
+    preview_path = os.path.join(app.config['PROCESSED_FOLDER'], preview_id)
+
+    try:
+        process_photo(
+            raw_path=raw_path,
+            output_path=preview_path,
+            paper_size=paper_size,
+            layout_mode=layout_mode,
+            color_mode=color_mode,
+            crop_box=crop_box,
+            caption=caption
+        )
+        return jsonify({
+            'success': True,
+            'preview_url': f"/static/uploads/processed/{preview_id}"
+        })
+    except Exception as e:
+        logger.error(f"Error generating photo preview: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventory', methods=['GET'])
+def public_get_inventory():
+    """Returns current available paper sheet counts."""
+    return jsonify({
+        'success': True,
+        'inventory': get_inventory()
+    })
+
+@app.route('/api/admin/inventory', methods=['POST'])
+def admin_set_inventory():
+    """Allows admin to update paper stock (sheets_available)."""
+    data = request.get_json() or {}
+    if 'paper_size' in data and 'sheets_available' in data:
+        update_inventory(data['paper_size'], data['sheets_available'])
+    else:
+        for size in ('4x6', '5x7'):
+            if size in data:
+                update_inventory(size, data[size])
+
+    return jsonify({
+        'success': True,
+        'inventory': get_inventory(),
+        'message': 'Inventory updated successfully'
+    })
+
 @app.route('/api/order/calculate', methods=['POST'])
 def calculate_price():
     data = request.get_json() or {}
@@ -159,6 +223,11 @@ def create_order():
 
     if not items:
         return jsonify({'error': 'No photos provided'}), 400
+
+    # 1. Enforce Paper Sheet Inventory Limits
+    sufficient, inv_error = check_inventory_sufficient(items)
+    if not sufficient:
+        return jsonify({'error': inv_error, 'out_of_stock': True}), 400
 
     order_id = f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
 
@@ -274,15 +343,29 @@ def verify_payment():
     # Verify signature
     valid = payment_service.verify_payment(razorpay_order_id, razorpay_payment_id, razorpay_signature)
     if not valid:
+        with get_db() as conn:
+            conn.execute('''
+                UPDATE orders 
+                SET status = 'FAILED', error_message = 'Payment signature verification failed'
+                WHERE id = ?
+            ''', (order_id,))
+            conn.commit()
         return jsonify({'error': 'Payment signature verification failed'}), 400
 
-    # Update database to PAID
+    # Update database to PENDING (payment confirmed, awaiting physical print)
     with get_db() as conn:
         conn.execute('''
             UPDATE orders 
-            SET status = 'PAID', razorpay_payment_id = ?, razorpay_signature = ?, paid_at = CURRENT_TIMESTAMP
+            SET status = 'PENDING', razorpay_payment_id = ?, razorpay_signature = ?, paid_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', (razorpay_payment_id, razorpay_signature, order_id))
+
+        # Deduct paper stock from inventory
+        order_items = conn.execute("SELECT paper_size, copies FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+        for it in order_items:
+            stock_key = '4x6' if it['paper_size'] in ('4x6', 'passport') else '5x7'
+            deduct_inventory(stock_key, it['copies'], conn=conn)
+
         conn.commit()
 
     # Enqueue to Print Spooler!
@@ -311,6 +394,7 @@ def get_order_status(order_id):
     return jsonify({
         'order_id': order['id'],
         'status': order['status'],
+        'error_message': order['error_message'],
         'total_prints': order['total_prints'],
         'total_amount': order['total_amount'],
         'completed_jobs': completed_jobs,
@@ -400,7 +484,6 @@ def agent_update_job_status(job_id):
                 UPDATE print_queue SET status = 'PRINTING', started_at = CURRENT_TIMESTAMP, attempts = attempts + 1
                 WHERE id = ?
             ''', (job_id,))
-            cursor.execute("UPDATE orders SET status = 'PRINTING' WHERE id = ?", (order_id,))
         elif new_status == 'COMPLETED':
             cursor.execute('''
                 UPDATE print_queue SET status = 'COMPLETED', finished_at = CURRENT_TIMESTAMP
@@ -426,6 +509,10 @@ def agent_update_job_status(job_id):
                 UPDATE print_queue SET status = 'FAILED', error_message = ?
                 WHERE id = ?
             ''', (error_msg, job_id))
+            cursor.execute('''
+                UPDATE orders SET status = 'PENDING', error_message = ?
+                WHERE id = ?
+            ''', (f"Printer error: {error_msg}", order_id))
 
         conn.commit()
 
@@ -449,7 +536,7 @@ def agent_heartbeat():
 @app.route('/api/admin/status', methods=['GET'])
 def get_admin_status():
     with get_db() as conn:
-        recent_orders = conn.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 20").fetchall()
+        recent_orders = conn.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 25").fetchall()
         queue = conn.execute('''
             SELECT q.*, i.original_filename, i.paper_size, o.customer_name
             FROM print_queue q
@@ -478,6 +565,7 @@ def get_admin_status():
         'recent_orders': [dict(o) for o in recent_orders],
         'total_printed': total_printed,
         'today_printed': today_printed,
+        'inventory': get_inventory(),
         'agent': {
             'is_online': is_agent_online,
             'last_seen': AGENT_STATE.get("last_seen"),

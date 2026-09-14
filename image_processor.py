@@ -45,7 +45,11 @@ def generate_passport_grid(raw_path, output_path, crop_box=None, color_mode="col
 
         # 1. Apply user crop (3.5 : 4.5 ratio)
         if crop_box:
-            x, y, w, h = [int(v) for v in crop_box]
+            if len(crop_box) >= 5 and crop_box[4]:
+                deg = int(crop_box[4])
+                if deg != 0:
+                    img = img.rotate(-deg, expand=True)
+            x, y, w, h = [int(v) for v in crop_box[:4]]
             x = max(0, min(x, img.width - 1))
             y = max(0, min(y, img.height - 1))
             w = max(10, min(w, img.width - x))
@@ -130,8 +134,12 @@ def process_photo(raw_path, output_path, paper_size="4x6", layout_mode="borderle
             
         # Determine orientation if not explicitly set
         if crop_box:
-            # Crop box: [x, y, w, h]
-            x, y, w, h = [int(v) for v in crop_box]
+            # Crop box: [x, y, w, h] or [x, y, w, h, rotate]
+            if len(crop_box) >= 5 and crop_box[4]:
+                deg = int(crop_box[4])
+                if deg != 0:
+                    img = img.rotate(-deg, expand=True)
+            x, y, w, h = [int(v) for v in crop_box[:4]]
             # Ensure within image bounds
             x = max(0, min(x, img.width - 1))
             y = max(0, min(y, img.height - 1))

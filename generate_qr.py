@@ -26,19 +26,16 @@ def get_cloudflare_url():
         pass
     return None
 
-def main():
-    cf_url = get_cloudflare_url()
-    local_ip = get_local_ip()
-    local_url = f"http://{local_ip}:5000"
+# Target Hosted URL for Photo Kiosk
+DEPLOYED_URL = os.environ.get("KIOSK_PUBLIC_URL", "https://epson-photo-kiosk.onrender.com/")
 
-    target_url = cf_url if cf_url else local_url
+def main():
+    target_url = DEPLOYED_URL
 
     print("=" * 60)
     print(" EPSON PM-520 PHOTO KIOSK - ACCESS LINKS")
     print("=" * 60)
-    if cf_url:
-        print(f" [Option B - Public Cloudflare Tunnel (4G/5G Worldwide)]:\n -> {cf_url}")
-    print(f" [Option A - Local Wi-Fi Network URL]:\n -> {local_url}")
+    print(f" [Live Cloud URL (Render.com)]:\n -> {target_url}")
     print("=" * 60)
 
     # Generate QR Code image

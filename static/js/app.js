@@ -143,6 +143,7 @@ async function uploadFiles(files) {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success && res.files.length > 0) {
                     if (currentMode === 'standard') {
+                        const startIndex = uploadedPhotos.length;
                         res.files.forEach(f => {
                             uploadedPhotos.push({
                                 original_name: f.original_name,
@@ -155,11 +156,16 @@ async function uploadFiles(files) {
                                 color_mode: 'color',
                                 copies: 1,
                                 caption: '',
-                                crop_box: null
+                                crop_box: null,
+                                preview_url: null
                             });
                         });
                         renderPhotosList();
                         updatePrice();
+
+                        // Automatically open framing adjustment modal for newly uploaded photo!
+                        openStandardCropper(startIndex);
+
                     } else {
                         // Passport Mode: single photo
                         const f = res.files[0];
@@ -203,7 +209,7 @@ function openPassportCropper() {
     if (!passportPhoto) return;
     isPassportCropping = true;
     cropModalTitle.innerText = "Crop to Passport Size (3.5 cm × 4.5 cm)";
-    cropModalSubtitle.innerText = "Position face centered inside the dashed guide frame";
+    cropModalSubtitle.innerText = "Position face centered inside the dashed oval frame. Use Rotate if required.";
     passportFaceGuide.classList.remove('hidden');
 
     cropImage.src = passportPhoto.url;
@@ -302,7 +308,7 @@ function renderPassportUI() {
 }
 
 // ==========================================
-// 4. Standard Photo List Rendering
+// 4. Standard Photo List Rendering & Live Previews
 // ==========================================
 function renderPhotosList() {
     if (uploadedPhotos.length === 0) {
@@ -319,27 +325,41 @@ function renderPhotosList() {
     photoCountBadge.classList.remove('hidden');
     photoCountBadge.innerText = `${uploadedPhotos.length} Photo${uploadedPhotos.length > 1 ? 's' : ''}`;
 
-    photosList.innerHTML = uploadedPhotos.map((photo, index) => `
+    photosList.innerHTML = uploadedPhotos.map((photo, index) => {
+        const displayThumb = photo.preview_url || photo.url;
+        const isFramed = (photo.crop_box !== null);
+
+        return `
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3 relative">
             <button onclick="removePhoto(${index})" class="absolute top-3 right-3 text-slate-500 hover:text-rose-400 p-1">
                 <i class="fa-solid fa-trash text-sm"></i>
             </button>
 
             <div class="flex items-start space-x-3">
-                <div class="relative w-24 h-24 rounded-xl overflow-hidden bg-slate-950 flex-shrink-0 border border-slate-700 shadow-inner">
-                    <img src="${photo.url}" alt="Thumbnail" class="w-full h-full object-cover">
+                <div class="relative w-28 h-28 rounded-xl overflow-hidden bg-slate-950 flex-shrink-0 border border-slate-700 shadow-inner flex items-center justify-center">
+                    <img src="${displayThumb}" alt="Preview" class="w-full h-full object-cover">
                     <button onclick="openStandardCropper(${index})" class="absolute bottom-1 right-1 px-2 py-0.5 rounded bg-black/80 hover:bg-amber-500 hover:text-slate-950 text-[10px] font-bold text-amber-400 border border-amber-400/40">
-                        <i class="fa-solid fa-crop-simple mr-0.5"></i> Crop
+                        <i class="fa-solid fa-crop-simple mr-0.5"></i> Adjust
                     </button>
                 </div>
 
-                <div class="flex-1 min-w-0 space-y-1">
-                    <p class="text-xs font-semibold text-slate-200 truncate pr-6">${photo.original_name}</p>
+                <div class="flex-1 min-w-0 space-y-1.5">
+                    <div class="flex items-center space-x-2 pr-6">
+                        <p class="text-xs font-semibold text-slate-200 truncate">${photo.original_name}</p>
+                    </div>
+
+                    <!-- Status badge -->
+                    <div>
+                        ${isFramed ? 
+                            `<span class="inline-flex items-center text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20"><i class="fa-solid fa-check mr-1"></i>Framed Preview Ready</span>` : 
+                            `<span class="inline-flex items-center text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Framing Needed</span>`
+                        }
+                    </div>
                     
                     <!-- Paper Size Picker -->
                     <div class="flex items-center space-x-2 pt-1">
                         <label class="text-[11px] text-slate-400">Size:</label>
-                        <select onchange="updatePhotoProp(${index}, 'paper_size', this.value)" class="bg-slate-950 text-xs text-amber-400 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none">
+                        <select onchange="changePaperSize(${index}, this.value)" class="bg-slate-950 text-xs text-amber-400 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none">
                             <option value="4x6" ${photo.paper_size === '4x6' ? 'selected' : ''}>4 x 6" (Standard - ₹50)</option>
                             <option value="5x7" ${photo.paper_size === '5x7' ? 'selected' : ''}>5 x 7" (Large - ₹80)</option>
                         </select>
@@ -361,13 +381,13 @@ function renderPhotosList() {
             <div class="space-y-1 pt-1 border-t border-slate-800/80">
                 <label class="text-[11px] text-slate-400 block">Layout Style:</label>
                 <div class="grid grid-cols-3 gap-2 text-xs">
-                    <button onclick="updatePhotoProp(${index}, 'layout_mode', 'borderless')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'borderless' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateLayout(${index}, 'borderless')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'borderless' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         Borderless
                     </button>
-                    <button onclick="updatePhotoProp(${index}, 'layout_mode', 'bordered')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'bordered' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateLayout(${index}, 'bordered')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'bordered' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         Bordered
                     </button>
-                    <button onclick="updatePhotoProp(${index}, 'layout_mode', 'polaroid')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'polaroid' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateLayout(${index}, 'polaroid')" class="py-1.5 rounded-lg border text-center font-medium ${photo.layout_mode === 'polaroid' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         Polaroid
                     </button>
                 </div>
@@ -375,32 +395,78 @@ function renderPhotosList() {
 
             <!-- Polaroid Caption Input -->
             <div class="${photo.layout_mode === 'polaroid' ? '' : 'hidden'} pt-1">
-                <input type="text" value="${photo.caption || ''}" onchange="updatePhotoProp(${index}, 'caption', this.value)" placeholder="Write a Polaroid caption (optional)..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                <input type="text" value="${photo.caption || ''}" onchange="updateCaption(${index}, this.value)" placeholder="Write a Polaroid caption (optional)..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500">
             </div>
 
             <!-- Color Filter Mode -->
             <div class="space-y-1 pt-1 border-t border-slate-800/80">
                 <label class="text-[11px] text-slate-400 block">Color Tone:</label>
                 <div class="grid grid-cols-3 gap-2 text-xs">
-                    <button onclick="updatePhotoProp(${index}, 'color_mode', 'color')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'color' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateColorTone(${index}, 'color')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'color' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         Color
                     </button>
-                    <button onclick="updatePhotoProp(${index}, 'color_mode', 'bw')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'bw' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateColorTone(${index}, 'bw')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'bw' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         B & W
                     </button>
-                    <button onclick="updatePhotoProp(${index}, 'color_mode', 'sepia')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'sepia' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
+                    <button onclick="updateColorTone(${index}, 'sepia')" class="py-1 rounded-lg border text-center font-medium ${photo.color_mode === 'sepia' ? 'bg-amber-500/20 text-amber-400 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800'}">
                         Sepia
                     </button>
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
-function updatePhotoProp(index, key, val) {
-    uploadedPhotos[index][key] = val;
+async function generateStandardPreview(index) {
+    const photo = uploadedPhotos[index];
+    if (!photo) return;
+
+    try {
+        const res = await fetch('/api/photo/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                raw_filename: photo.raw_filename,
+                paper_size: photo.paper_size,
+                layout_mode: photo.layout_mode,
+                color_mode: photo.color_mode,
+                crop_box: photo.crop_box,
+                caption: photo.caption
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            photo.preview_url = data.preview_url + '?t=' + Date.now();
+            renderPhotosList();
+        }
+    } catch (e) {
+        console.error("Failed to generate preview", e);
+    }
+}
+
+function changePaperSize(index, newSize) {
+    uploadedPhotos[index].paper_size = newSize;
     renderPhotosList();
     updatePrice();
+    // Prompt framing adjustment for the new paper size aspect ratio!
+    openStandardCropper(index);
+}
+
+function updateLayout(index, layout) {
+    uploadedPhotos[index].layout_mode = layout;
+    renderPhotosList();
+    generateStandardPreview(index);
+}
+
+function updateCaption(index, caption) {
+    uploadedPhotos[index].caption = caption;
+    generateStandardPreview(index);
+}
+
+function updateColorTone(index, color) {
+    uploadedPhotos[index].color_mode = color;
+    renderPhotosList();
+    generateStandardPreview(index);
 }
 
 function changeCopies(index, delta) {
@@ -469,8 +535,8 @@ function openStandardCropper(index) {
     isPassportCropping = false;
     currentCroppingIndex = index;
     const photo = uploadedPhotos[index];
-    cropModalTitle.innerText = "Adjust Framing & Aspect Ratio";
-    cropModalSubtitle.innerText = "Drag to fit photo within the printable frame";
+    cropModalTitle.innerText = `Adjust Framing for ${photo.paper_size === '5x7' ? '5×7' : '4×6'} Paper`;
+    cropModalSubtitle.innerText = "Phone photos and photo paper have different shapes. Drag the frame to compose your print, and tap Rotate if needed.";
     passportFaceGuide.classList.add('hidden');
 
     cropImage.src = photo.url;
@@ -507,21 +573,30 @@ rotateCropBtn.addEventListener('click', () => {
 applyCropBtn.addEventListener('click', () => {
     if (!cropperInstance) return;
 
-    const cropData = cropperInstance.getData(true); // integer coordinates: x, y, width, height
+    const cropData = cropperInstance.getData(true); // coordinates and rotate
 
     if (isPassportCropping) {
-        passportPhoto.crop_box = [cropData.x, cropData.y, cropData.width, cropData.height];
+        passportPhoto.crop_box = [cropData.x, cropData.y, cropData.width, cropData.height, cropData.rotate || 0];
         cropModal.classList.add('hidden');
         cropperInstance.destroy();
         cropperInstance = null;
         generatePassportPreview();
     } else {
         if (currentCroppingIndex !== null) {
-            uploadedPhotos[currentCroppingIndex].crop_box = [cropData.x, cropData.y, cropData.width, cropData.height];
+            uploadedPhotos[currentCroppingIndex].crop_box = [cropData.x, cropData.y, cropData.width, cropData.height, cropData.rotate || 0];
+            const framedIdx = currentCroppingIndex;
             cropModal.classList.add('hidden');
             cropperInstance.destroy();
             cropperInstance = null;
-            renderPhotosList();
+
+            // Generate print preview
+            generateStandardPreview(framedIdx);
+
+            // Check if there are other newly uploaded photos that need framing
+            const nextUnframed = uploadedPhotos.findIndex(p => p.crop_box === null);
+            if (nextUnframed !== -1) {
+                setTimeout(() => openStandardCropper(nextUnframed), 200);
+            }
         }
     }
 });
@@ -534,6 +609,15 @@ payNowBtn.addEventListener('click', async () => {
 
     if (currentMode === 'standard') {
         if (uploadedPhotos.length === 0) return;
+
+        // Ensure all photos have framing adjusted
+        const unframedIdx = uploadedPhotos.findIndex(p => p.crop_box === null);
+        if (unframedIdx !== -1) {
+            alert(`Please adjust the framing for Photo #${unframedIdx + 1} (${uploadedPhotos[unframedIdx].original_name}) before proceeding.`);
+            openStandardCropper(unframedIdx);
+            return;
+        }
+
         orderItems = uploadedPhotos;
     } else {
         if (!passportPhoto || !passportPhoto.preview_url) {
@@ -556,10 +640,10 @@ payNowBtn.addEventListener('click', async () => {
     const custPhone = document.getElementById('custPhone').value.trim() || '';
 
     payNowBtn.disabled = true;
-    payNowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Preparing Order...';
+    payNowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Checking Paper Stock...';
 
     try {
-        // Step A: Create Order on Backend
+        // Step A: Create Order on Backend (Validates Paper Inventory Stock)
         const orderRes = await fetch('/api/order/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -615,7 +699,7 @@ payNowBtn.addEventListener('click', async () => {
         rzp.open();
 
     } catch (err) {
-        alert('Order error: ' + err.message);
+        alert(err.message);
         payNowBtn.disabled = false;
         payNowBtn.innerHTML = '<span>Proceed to Pay</span> <i class="fa-solid fa-arrow-right text-xs"></i>';
     }
