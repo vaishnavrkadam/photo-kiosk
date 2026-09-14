@@ -336,64 +336,84 @@
                 const elTotal = document.getElementById('statTotalCount');
                 if (elTotal) elTotal.innerText = data.total_printed !== undefined ? data.total_printed : 0;
 
-                // Queue Table
-                const qBody = document.getElementById('queueTableBody');
-                if (qBody) {
-                    if (!data.queue || data.queue.length === 0) {
-                        qBody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">Queue is idle. Waiting for prints.</td></tr>';
-                    } else {
-                        qBody.innerHTML = data.queue.map(q => `
-                            <tr class="hover:bg-slate-800/30">
-                                <td class="py-3 font-mono font-bold text-slate-300">#${q.id}</td>
-                                <td class="py-3 text-slate-300">${(q.order_id || '').substring(0, 15)}...</td>
-                                <td class="py-3 text-slate-300 truncate max-w-[140px]">${q.original_filename || 'Photo'}</td>
-                                <td class="py-3 font-semibold text-amber-400">${q.paper_size}</td>
-                                <td class="py-3">${q.copy_number} of ${q.total_copies}</td>
-                                <td class="py-3">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${q.status === 'PRINTING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse' : 'bg-slate-800 text-slate-300'}">
-                                        ${q.status}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('');
-                    }
-                }
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
-                // Recent Orders Table with Customer Name and Phone
-                const oBody = document.getElementById('ordersTableBody');
-                if (oBody) {
-                    if (!data.recent_orders || data.recent_orders.length === 0) {
-                        oBody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500">No customer orders recorded yet. Completed orders will appear here automatically.</td></tr>';
-                    } else {
-                        oBody.innerHTML = data.recent_orders.map(o => `
-                            <tr class="hover:bg-slate-800/30">
-                                <td class="py-3 font-mono font-bold text-slate-200">${(o.id || '').substring(0, 16)}</td>
-                                <td class="py-3">
-                                    <div class="font-bold text-slate-100">${o.customer_name || 'Customer'}</div>
-                                    ${o.customer_phone ? `<div class="text-[11px] text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-amber-400/80 mr-1"></i>${o.customer_phone}</div>` : '<span class="text-[11px] text-slate-500">No phone</span>'}
-                                </td>
-                                <td class="py-3 font-bold text-emerald-400">₹${o.total_amount}</td>
-                                <td class="py-3 text-slate-300">${o.total_prints} prints</td>
-                                <td class="py-3">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                        o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
-                                        (o.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
-                                        'bg-amber-500/20 text-amber-400 border border-amber-500/30')
-                                    }">
-                                        ${o.status === 'PENDING' && o.error_message ? 'PENDING (RETRY)' : o.status}
-                                    </span>
-                                    ${o.error_message ? `<div class="text-[10px] text-rose-400 mt-0.5 truncate max-w-[140px]" title="${o.error_message}">${o.error_message}</div>` : ''}
-                                </td>
-                                <td class="py-3 text-slate-400">${o.created_at || ''}</td>
-                                <td class="py-3 text-right">
-                                    <button onclick="reprintOrder('${o.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700 transition">
-                                        <i class="fa-solid fa-redo mr-1"></i> Reprint
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('');
-                    }
-                }
+        // Queue Table
+        const qBody = document.getElementById('queueTableBody');
+        if (qBody) {
+            if (!data.queue || data.queue.length === 0) {
+                qBody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">Queue is idle. Waiting for prints.</td></tr>';
+            } else {
+                qBody.innerHTML = data.queue.map(q => {
+                    const escOrderId = escapeHtml(q.order_id || '');
+                    const escFilename = escapeHtml(q.original_filename || 'Photo');
+                    return `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="py-3 font-mono font-bold text-slate-300">#${q.id}</td>
+                            <td class="py-3 text-slate-300">${escOrderId.substring(0, 15)}...</td>
+                            <td class="py-3 text-slate-300 truncate max-w-[140px]" title="${escFilename}">${escFilename}</td>
+                            <td class="py-3 font-semibold text-amber-400">${escapeHtml(q.paper_size)}</td>
+                            <td class="py-3">${q.copy_number} of ${q.total_copies}</td>
+                            <td class="py-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${q.status === 'PRINTING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse' : 'bg-slate-800 text-slate-300'}">
+                                    ${escapeHtml(q.status)}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Recent Orders Table with Customer Name and Phone (XSS Protected)
+        const oBody = document.getElementById('ordersTableBody');
+        if (oBody) {
+            if (!data.recent_orders || data.recent_orders.length === 0) {
+                oBody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500">No customer orders recorded yet. Completed orders will appear here automatically.</td></tr>';
+            } else {
+                oBody.innerHTML = data.recent_orders.map(o => {
+                    const escId = escapeHtml(o.id || '');
+                    const escName = escapeHtml(o.customer_name || 'Customer');
+                    const escPhone = escapeHtml(o.customer_phone || '');
+                    const escError = escapeHtml(o.error_message || '');
+                    return `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="py-3 font-mono font-bold text-slate-200">${escId.substring(0, 16)}</td>
+                            <td class="py-3">
+                                <div class="font-bold text-slate-100">${escName}</div>
+                                ${escPhone ? `<div class="text-[11px] text-slate-400 mt-0.5"><a href="tel:${encodeURIComponent(escPhone)}" class="hover:text-amber-400 transition"><i class="fa-solid fa-phone text-amber-400/80 mr-1"></i>${escPhone}</a></div>` : '<span class="text-[11px] text-slate-500">No phone</span>'}
+                            </td>
+                            <td class="py-3 font-bold text-emerald-400">₹${Number(o.total_amount).toFixed(2)}</td>
+                            <td class="py-3 text-slate-300">${o.total_prints} prints</td>
+                            <td class="py-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+                                    (o.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
+                                    'bg-amber-500/20 text-amber-400 border border-amber-500/30')
+                                }">
+                                    ${o.status === 'PENDING' && o.error_message ? 'PENDING (RETRY)' : escapeHtml(o.status)}
+                                </span>
+                                ${escError ? `<div class="text-[10px] text-rose-400 mt-0.5 truncate max-w-[140px]" title="${escError}">${escError}</div>` : ''}
+                            </td>
+                            <td class="py-3 text-slate-400">${escapeHtml(o.created_at || '')}</td>
+                            <td class="py-3 text-right">
+                                <button onclick="reprintOrder('${escId}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700 transition">
+                                    <i class="fa-solid fa-redo mr-1"></i> Reprint
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
 
             } catch (err) {
                 console.error("Failed to fetch admin data", err);

@@ -636,8 +636,38 @@ payNowBtn.addEventListener('click', async () => {
         }];
     }
 
-    const custName = document.getElementById('custName').value.trim() || 'Customer';
-    const custPhone = document.getElementById('custPhone').value.trim() || '';
+    const nameInput = document.getElementById('custName');
+    const phoneInput = document.getElementById('custPhone');
+    const custName = (nameInput ? nameInput.value.trim() : '');
+    const custPhone = (phoneInput ? phoneInput.value.trim() : '');
+
+    if (!custName) {
+        alert("Please enter your Name before proceeding to payment.");
+        if (nameInput) {
+            nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInput.focus();
+        }
+        return;
+    }
+
+    if (!custPhone) {
+        alert("Please enter your Mobile Number before proceeding to payment.");
+        if (phoneInput) {
+            phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            phoneInput.focus();
+        }
+        return;
+    }
+
+    const cleanPhoneDigits = custPhone.replace(/\D/g, '');
+    if (cleanPhoneDigits.length < 10) {
+        alert("Please enter a valid 10-digit mobile number.");
+        if (phoneInput) {
+            phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            phoneInput.focus();
+        }
+        return;
+    }
 
     payNowBtn.disabled = true;
     payNowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Checking Paper Stock...';

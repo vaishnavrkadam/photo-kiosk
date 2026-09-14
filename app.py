@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import json
 import logging
@@ -22,11 +23,46 @@ app.config['SECRET_KEY'] = config.SECRET_KEY
 app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
 app.config['PROCESSED_FOLDER'] = config.PROCESSED_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if getattr(config, 'IS_CLOUD_DEPLOYMENT', False):
+    app.config['SESSION_COOKIE_SECURE'] = True
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'heic', 'bmp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def is_safe_filename(filename, base_folder):
+    """
+    Prevents directory traversal attacks by ensuring the filename does not contain path
+    separators and strictly resolves to a file within base_folder.
+    """
+    if not filename or not isinstance(filename, str):
+        return False
+    if os.path.basename(filename) != filename or '..' in filename or '/' in filename or '\\' in filename:
+        return False
+    target = os.path.abspath(os.path.join(base_folder, filename))
+    base = os.path.abspath(base_folder)
+    return target.startswith(base) and target != base
+
+# Brute-force protection tracking for Admin Login
+FAILED_LOGINS = {}
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOCKOUT_WINDOW_SECONDS = 60
+
+def is_ip_rate_limited(ip):
+    now = datetime.now()
+    attempts = FAILED_LOGINS.get(ip, [])
+    valid_attempts = [t for t in attempts if (now - t).total_seconds() < LOCKOUT_WINDOW_SECONDS]
+    FAILED_LOGINS[ip] = valid_attempts
+    return len(valid_attempts) >= MAX_FAILED_LOGIN_ATTEMPTS
+
+def record_failed_login(ip):
+    now = datetime.now()
+    if ip not in FAILED_LOGINS:
+        FAILED_LOGINS[ip] = []
+    FAILED_LOGINS[ip].append(now)
 
 def is_admin_logged_in():
     return session.get('admin_authenticated') is True
@@ -37,6 +73,14 @@ def verify_admin_access():
     auth_header = request.headers.get("X-Admin-Password") or request.headers.get("X-Agent-Secret")
     query_auth = request.args.get("secret") or request.args.get("password")
     return (auth_header in (config.ADMIN_PASSWORD, config.AGENT_SECRET_KEY)) or (query_auth in (config.ADMIN_PASSWORD, config.AGENT_SECRET_KEY))
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
 
 # ----------------- Customer UI Pages -----------------
 
@@ -68,10 +112,17 @@ def admin():
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
+    ip = request.remote_addr or 'unknown'
+    if is_ip_rate_limited(ip):
+        return render_template('admin_login.html', error="Too many failed login attempts. Please wait 60 seconds before trying again.")
+
     pwd = request.form.get('password', '').strip()
     if pwd == config.ADMIN_PASSWORD:
+        FAILED_LOGINS.pop(ip, None)
         session['admin_authenticated'] = True
         return redirect(url_for('admin'))
+
+    record_failed_login(ip)
     return render_template('admin_login.html', error="Invalid admin password. Please try again.")
 
 @app.route('/admin/logout', methods=['GET', 'POST'])
@@ -79,14 +130,15 @@ def admin_logout():
     session.pop('admin_authenticated', None)
     return redirect(url_for('admin'))
 
-# ----------------- Customer API Endpoints -----------------
-
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     if 'photos' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
     files = request.files.getlist('photos')
+    if len(files) > 10:
+        return jsonify({'error': 'Maximum 10 photos can be uploaded per batch'}), 400
+
     results = []
 
     for file in files:
@@ -96,15 +148,27 @@ def upload_file():
             raw_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
             file.save(raw_path)
 
-            # Read dimensions & orientation
+            # Strict verification: inspect genuine image header and dimensions
             try:
                 with Image.open(raw_path) as img:
+                    img.verify()
+                    fmt = (img.format or '').lower()
+                    if fmt not in ('png', 'jpeg', 'jpg', 'webp', 'bmp'):
+                        raise ValueError(f"Unsupported image format: {img.format}")
+                # Re-open after verify() to read dimensions
+                with Image.open(raw_path) as img:
                     width, height = img.size
-            except Exception:
-                width, height = (1200, 1800)
+            except Exception as e:
+                if os.path.exists(raw_path):
+                    try:
+                        os.remove(raw_path)
+                    except OSError:
+                        pass
+                logger.warning(f"Rejected invalid or malformed image ({file.filename}): {e}")
+                return jsonify({'error': f'Invalid image format or corrupt file: {secure_filename(file.filename)}'}), 400
 
             results.append({
-                'original_name': file.filename,
+                'original_name': secure_filename(file.filename),
                 'raw_filename': unique_name,
                 'url': f"/static/uploads/raw/{unique_name}",
                 'width': width,
@@ -121,8 +185,8 @@ def passport_preview():
     crop_box = data.get('crop_box')
     color_mode = data.get('color_mode', 'color')
 
-    if not raw_filename:
-        return jsonify({'error': 'Missing raw_filename'}), 400
+    if not raw_filename or not is_safe_filename(raw_filename, app.config['UPLOAD_FOLDER']):
+        return jsonify({'error': 'Invalid or forbidden filename'}), 400
 
     raw_path = os.path.join(app.config['UPLOAD_FOLDER'], raw_filename)
     if not os.path.exists(raw_path):
@@ -157,8 +221,8 @@ def photo_preview():
     crop_box = data.get('crop_box')
     caption = data.get('caption', '')
 
-    if not raw_filename:
-        return jsonify({'error': 'Missing raw_filename'}), 400
+    if not raw_filename or not is_safe_filename(raw_filename, app.config['UPLOAD_FOLDER']):
+        return jsonify({'error': 'Invalid or forbidden filename'}), 400
 
     raw_path = os.path.join(app.config['UPLOAD_FOLDER'], raw_filename)
     if not os.path.exists(raw_path):
@@ -246,11 +310,33 @@ def calculate_price():
 def create_order():
     data = request.get_json() or {}
     items = data.get('items', [])
-    customer_name = data.get('customer_name', 'Customer')
-    customer_phone = data.get('customer_phone', '')
+    customer_name = (data.get('customer_name') or '').strip()
+    customer_phone = (data.get('customer_phone') or '').strip()
+
+    # Compulsory Customer Validation
+    if not customer_name:
+        return jsonify({'error': 'Customer Name is required to place an order.'}), 400
+
+    if not customer_phone:
+        return jsonify({'error': 'Mobile Number is required to place an order.'}), 400
+
+    # Sanitize Customer Name (strip HTML / scripting characters, max 80 chars)
+    customer_name = re.sub(r'[<>{}\[\]\\]', '', customer_name)[:80].strip()
+    if not customer_name:
+        return jsonify({'error': 'Please provide a valid Customer Name.'}), 400
+
+    # Validate Customer Mobile Number (must contain at least 10 digits)
+    cleaned_phone = re.sub(r'[^\d+]', '', customer_phone)[:15]
+    digits_only = re.sub(r'\D', '', cleaned_phone)
+    if len(digits_only) < 10:
+        return jsonify({'error': 'Please provide a valid 10-digit mobile number.'}), 400
+    customer_phone = cleaned_phone
 
     if not items:
         return jsonify({'error': 'No photos provided'}), 400
+
+    if len(items) > 50:
+        return jsonify({'error': 'Maximum 50 items allowed per order'}), 400
 
     # 1. Enforce Paper Sheet Inventory Limits
     sufficient, inv_error = check_inventory_sufficient(items)
@@ -268,11 +354,15 @@ def create_order():
         size = item.get('paper_size', '4x6')
         layout = item.get('layout_mode', 'borderless')
         color = item.get('color_mode', 'color')
-        copies = max(1, int(item.get('copies', 1)))
-        caption = item.get('caption', '')
-        crop_box = item.get('crop_box') # [x, y, w, h]
+        copies = max(1, min(100, int(item.get('copies', 1))))
+        caption = (item.get('caption') or '')[:100]
+        crop_box = item.get('crop_box') # [x, y, w, h] or [x, y, w, h, rotate]
         raw_filename = item.get('raw_filename')
         original_name = item.get('original_name', raw_filename)
+
+        # Path traversal guard on raw_filename
+        if not raw_filename or not is_safe_filename(raw_filename, app.config['UPLOAD_FOLDER']):
+            return jsonify({'error': f'Invalid or forbidden photo reference'}), 400
 
         price_each = config.PRICING.get(size, config.PRICING["4x6"])["price_per_photo"]
         item_subtotal = price_each * copies
@@ -281,6 +371,9 @@ def create_order():
 
         # Pre-render 300 DPI print-ready image
         raw_path = os.path.join(app.config['UPLOAD_FOLDER'], raw_filename)
+        if not os.path.exists(raw_path):
+            return jsonify({'error': 'One or more source photos are missing or expired. Please upload again.'}), 400
+
         processed_filename = f"{order_id}_{len(item_records) + 1}.jpg"
         processed_path = os.path.join(app.config['PROCESSED_FOLDER'], processed_filename)
 
@@ -295,7 +388,7 @@ def create_order():
         )
 
         item_records.append({
-            'original_filename': original_name,
+            'original_filename': secure_filename(original_name or raw_filename),
             'raw_filename': raw_filename,
             'processed_filename': processed_path,
             'paper_size': size,
@@ -428,8 +521,23 @@ def get_order_status(order_id):
         'completed_jobs': completed_jobs,
         'total_jobs': total_jobs,
         'current_copy': f"{current_printing['copy_number']}/{current_printing['total_copies']}" if current_printing else None,
-        'items': [dict(it) for it in items],
-        'jobs': [dict(j) for j in jobs]
+        'items': [{
+            'id': it['id'],
+            'original_filename': it['original_filename'],
+            'paper_size': it['paper_size'],
+            'layout_mode': it['layout_mode'],
+            'color_mode': it['color_mode'],
+            'copies': it['copies'],
+            'price_each': it['price_each'],
+            'subtotal': it['subtotal'],
+            'status': it['status']
+        } for it in items],
+        'jobs': [{
+            'id': j['id'],
+            'copy_number': j['copy_number'],
+            'total_copies': j['total_copies'],
+            'status': j['status']
+        } for j in jobs]
     })
 
 # ----------------- Remote Laptop Print Agent Endpoints -----------------
@@ -481,10 +589,14 @@ def agent_download_job(job_id):
             WHERE q.id = ?
         ''', (job_id,)).fetchone()
 
-    if not job or not job['processed_filename'] or not os.path.exists(job['processed_filename']):
-        return jsonify({'error': 'Job or processed file not found'}), 404
+    if not job or not job['processed_filename']:
+        return jsonify({'error': 'Job not found'}), 404
 
-    return send_file(job['processed_filename'], mimetype='image/jpeg')
+    file_path = os.path.abspath(job['processed_filename'])
+    if not file_path.startswith(os.path.abspath(app.config['PROCESSED_FOLDER'])) or not os.path.exists(file_path):
+        return jsonify({'error': 'Processed file not found or forbidden'}), 404
+
+    return send_file(file_path, mimetype='image/jpeg')
 
 @app.route('/api/agent/job/<int:job_id>/status', methods=['POST'])
 def agent_update_job_status(job_id):

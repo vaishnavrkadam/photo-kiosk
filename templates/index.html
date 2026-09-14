@@ -171,20 +171,27 @@
             </div>
         </section>
 
-        <!-- Step 3: Customer Details (Optional) -->
+        <!-- Step 3: Customer Details (Compulsory) -->
         <section id="customerDetailsSection" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
-            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center">
-                <span class="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center mr-2">3</span>
-                Customer Info
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                <div class="flex items-center">
+                    <span class="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center mr-2">3</span>
+                    <span>Customer Info</span>
+                </div>
+                <span class="text-[11px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Required</span>
             </h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Your Name</label>
-                    <input type="text" id="custName" placeholder="e.g. John Doe" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">
+                        Your Name <span class="text-rose-400">*</span>
+                    </label>
+                    <input type="text" id="custName" required maxlength="80" placeholder="e.g. John Doe" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Phone Number (Optional)</label>
-                    <input type="tel" id="custPhone" placeholder="10-digit mobile" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">
+                        Mobile Number <span class="text-rose-400">*</span>
+                    </label>
+                    <input type="tel" id="custPhone" required maxlength="15" placeholder="10-digit mobile number" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition">
                 </div>
             </div>
         </section>
