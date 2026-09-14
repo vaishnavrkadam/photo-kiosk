@@ -12,7 +12,7 @@
 
     <!-- Navbar -->
     <nav class="bg-slate-900 border-b border-slate-800 px-6 py-4">
-        <div class="max-w-6xl mx-auto flex items-center justify-between">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center space-x-3">
                 <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-bold">
                     <i class="fa-solid fa-sliders"></i>
@@ -22,23 +22,27 @@
                     <p class="text-xs text-slate-400">Epson PictureMate PM-520 Control</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-3">
-                <button id="testPrintBtn" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-slate-700 flex items-center space-x-2">
+            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                <button id="testPrintBtn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-slate-700 flex items-center space-x-2 transition">
                     <i class="fa-solid fa-print"></i>
-                    <span>Test Print Hardware</span>
+                    <span>Test Print</span>
                 </button>
-                <a href="/" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5">
+                <a href="/" target="_blank" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5 transition">
                     <i class="fa-solid fa-external-link"></i>
-                    <span>Open Kiosk UI</span>
+                    <span>Kiosk UI</span>
+                </a>
+                <a href="/admin/logout" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 text-xs font-bold border border-slate-700 hover:border-rose-500/30 flex items-center space-x-1.5 transition" title="Lock & Logout">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Logout</span>
                 </a>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
-        <!-- Top Stat Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+        <!-- Top Stat Cards (Responsive Grid: 2 cols on mobile, 3 on tablet, 5 on laptop) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             
             <!-- Laptop Print Agent Status -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
@@ -47,7 +51,7 @@
                     <span id="agentStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
                     <h3 id="agentStatusText" class="font-bold text-sm text-slate-100 truncate">Checking...</h3>
                 </div>
-                <p id="agentLastSeenText" class="text-[11px] text-slate-500 mt-1">run_agent.bat status</p>
+                <p id="agentLastSeenText" class="text-[11px] text-slate-500 mt-1 truncate">run_agent.bat status</p>
             </div>
 
             <!-- Printer Status -->
@@ -57,7 +61,7 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     <h3 id="printerNameText" class="font-bold text-sm text-slate-100 truncate">{{ default_printer }}</h3>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">USB 2.0 / Native 756 DPI</p>
+                <p class="text-[11px] text-slate-500 mt-1 truncate">USB 2.0 / Native 756 DPI</p>
             </div>
 
             <!-- Queue Depth -->
@@ -74,70 +78,78 @@
                 <p class="text-[11px] text-slate-500">Photos produced</p>
             </div>
 
-        <!-- Paper Sheet Inventory Card -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <!-- All-Time Prints -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg col-span-2 sm:col-span-1">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">All-Time Prints</p>
+                <h3 id="statTotalCount" class="text-2xl font-black text-indigo-400 mt-1">0</h3>
+                <p class="text-[11px] text-slate-500">Total lifetime prints</p>
+            </div>
+        </div>
+
+        <!-- Paper Sheet Inventory Card (Full Width on all screens) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div class="flex items-center space-x-3">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                         <i class="fa-solid fa-layer-group text-lg"></i>
                     </div>
                     <div>
-                        <h2 class="text-sm font-bold text-white">Paper Sheet Inventory & Stock Control</h2>
+                        <h2 class="text-base font-bold text-white">Paper Sheet Inventory & Stock Control</h2>
                         <p class="text-xs text-slate-400">Keep count of photo paper loaded inside the Epson PM-520</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <span id="lowStockWarning" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    <span id="lowStockWarning" class="hidden text-xs font-semibold px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> Low Paper Stock
                     </span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
                 <!-- 4x6 Stock -->
-                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-300">4 × 6 inch Photo Paper</span>
-                        <span id="stock4x6Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <span id="stock4x6Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
                             0 Sheets Available
                         </span>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-3">
                         <div class="flex-1">
                             <label class="block text-[11px] text-slate-500 mb-1">Set Loaded Sheets:</label>
-                            <input type="number" id="inputStock4x6" min="0" placeholder="e.g. 50" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                            <input type="number" id="inputStock4x6" min="0" placeholder="e.g. 50" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
                         </div>
-                        <button onclick="updateStock('4x6')" class="self-end px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95">
+                        <button onclick="updateStock('4x6')" class="self-end px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95 whitespace-nowrap">
                             Update
                         </button>
                     </div>
-                    <p class="text-[10px] text-slate-500">Consumed by: Standard 4x6 prints & 8-photo Passport sheets</p>
+                    <p class="text-[11px] text-slate-500">Consumed by: Standard 4x6 prints & 8-photo Passport sheets</p>
                 </div>
 
                 <!-- 5x7 Stock -->
-                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-300">5 × 7 inch Photo Paper</span>
-                        <span id="stock5x7Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <span id="stock5x7Badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
                             0 Sheets Available
                         </span>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-3">
                         <div class="flex-1">
                             <label class="block text-[11px] text-slate-500 mb-1">Set Loaded Sheets:</label>
-                            <input type="number" id="inputStock5x7" min="0" placeholder="e.g. 20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                            <input type="number" id="inputStock5x7" min="0" placeholder="e.g. 20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
                         </div>
-                        <button onclick="updateStock('5x7')" class="self-end px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95">
+                        <button onclick="updateStock('5x7')" class="self-end px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-transform active:scale-95 whitespace-nowrap">
                             Update
                         </button>
                     </div>
-                    <p class="text-[10px] text-slate-500">Consumed by: Large 5x7 prints</p>
+                    <p class="text-[11px] text-slate-500">Consumed by: Large 5x7 prints</p>
                 </div>
             </div>
         </div>
 
         <!-- Customer QR Code & Link Banner -->
-        <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5">
             <div class="flex items-center space-x-4">
                 <div class="w-20 h-20 bg-white p-1.5 rounded-xl flex-shrink-0 shadow-md">
                     <img src="/kiosk_qr_code.png" alt="Kiosk QR Code" class="w-full h-full object-contain">
@@ -157,7 +169,7 @@
                 </div>
             </div>
             <div class="flex items-center space-x-2 w-full md:w-auto">
-                <a href="/kiosk_qr_code.png" download="kiosk_qr_code.png" class="flex-1 md:flex-initial text-center px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700">
+                <a href="/kiosk_qr_code.png" download="kiosk_qr_code.png" class="flex-1 md:flex-initial text-center px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition">
                     <i class="fa-solid fa-download mr-1"></i> Save QR Poster
                 </a>
             </div>
@@ -196,12 +208,17 @@
             </div>
         </div>
 
-        <!-- Recent Orders & Reprint Control -->
+        <!-- Recent Orders & Customer Details -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h2 class="text-base font-bold text-white mb-4 flex items-center">
-                <i class="fa-solid fa-clock-rotate-left text-amber-400 mr-2"></i>
-                Recent Customer Orders
-            </h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400 mr-2"></i>
+                    Recent Customer Orders
+                </h2>
+                <span class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                    Last 25 Orders
+                </span>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
                     <thead>
@@ -216,7 +233,9 @@
                         </tr>
                     </thead>
                     <tbody id="ordersTableBody" class="divide-y divide-slate-800/60">
-                        <!-- Loaded dynamically -->
+                        <tr>
+                            <td colspan="7" class="py-6 text-center text-slate-500">Loading orders...</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -253,6 +272,11 @@
                 }
 
                 const res = await fetch('/api/admin/status');
+                if (res.status === 401) {
+                    // Session expired or unauthenticated -> redirect to login
+                    window.location.href = '/admin';
+                    return;
+                }
                 if (!res.ok) return;
                 const data = await res.json();
 
@@ -262,94 +286,114 @@
                     const dot = document.getElementById('agentStatusDot');
                     const text = document.getElementById('agentStatusText');
                     const sub = document.getElementById('agentLastSeenText');
-                    if (isOnline) {
-                        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
-                        text.innerText = "ONLINE";
-                        text.className = "font-bold text-sm text-emerald-400 truncate";
-                        sub.innerText = (data.agent.printer_name || "Printer Ready");
-                    } else {
-                        dot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
-                        text.innerText = "OFFLINE";
-                        text.className = "font-bold text-sm text-slate-400 truncate";
-                        sub.innerText = "Run run_agent.bat on laptop";
+                    if (dot && text && sub) {
+                        if (isOnline) {
+                            dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                            text.innerText = "ONLINE";
+                            text.className = "font-bold text-sm text-emerald-400 truncate";
+                            sub.innerText = (data.agent.printer_name || "Printer Ready");
+                        } else {
+                            dot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
+                            text.innerText = "OFFLINE";
+                            text.className = "font-bold text-sm text-slate-400 truncate";
+                            sub.innerText = "Run run_agent.bat on laptop";
+                        }
                     }
                 }
 
                 // Active Printer
                 if (data.active_printer) {
-                    document.getElementById('printerNameText').innerText = data.active_printer;
+                    const pEl = document.getElementById('printerNameText');
+                    if (pEl) pEl.innerText = data.active_printer;
                 }
 
                 // Inventory Stock Display
                 if (data.inventory) {
                     const s4 = data.inventory['4x6'] ? data.inventory['4x6'].available : 0;
                     const s5 = data.inventory['5x7'] ? data.inventory['5x7'].available : 0;
-                    document.getElementById('stock4x6Badge').innerText = `${s4} Sheets Available`;
-                    document.getElementById('stock5x7Badge').innerText = `${s5} Sheets Available`;
+                    const b4 = document.getElementById('stock4x6Badge');
+                    const b5 = document.getElementById('stock5x7Badge');
+                    if (b4) b4.innerText = `${s4} Sheets Available`;
+                    if (b5) b5.innerText = `${s5} Sheets Available`;
 
                     const lowWarning = document.getElementById('lowStockWarning');
-                    if (s4 < 5 || s5 < 5) {
-                        lowWarning.classList.remove('hidden');
-                    } else {
-                        lowWarning.classList.add('hidden');
+                    if (lowWarning) {
+                        if (s4 < 5 || s5 < 5) {
+                            lowWarning.classList.remove('hidden');
+                        } else {
+                            lowWarning.classList.add('hidden');
+                        }
                     }
                 }
 
-                // Stats
-                document.getElementById('statQueueCount').innerText = data.queue.length;
-                document.getElementById('statTodayCount').innerText = data.today_printed;
-                document.getElementById('statTotalCount').innerText = data.total_printed;
+                // Top Stats Counters
+                const elQueue = document.getElementById('statQueueCount');
+                if (elQueue) elQueue.innerText = data.queue ? data.queue.length : 0;
+                
+                const elToday = document.getElementById('statTodayCount');
+                if (elToday) elToday.innerText = data.today_printed !== undefined ? data.today_printed : 0;
+
+                const elTotal = document.getElementById('statTotalCount');
+                if (elTotal) elTotal.innerText = data.total_printed !== undefined ? data.total_printed : 0;
 
                 // Queue Table
                 const qBody = document.getElementById('queueTableBody');
-                if (data.queue.length === 0) {
-                    qBody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">Queue is idle. Waiting for prints.</td></tr>';
-                } else {
-                    qBody.innerHTML = data.queue.map(q => `
-                        <tr class="hover:bg-slate-800/30">
-                            <td class="py-3 font-mono font-bold text-slate-300">#${q.id}</td>
-                            <td class="py-3 text-slate-300">${q.order_id.substring(0, 15)}...</td>
-                            <td class="py-3 text-slate-300 truncate max-w-[140px]">${q.original_filename}</td>
-                            <td class="py-3 font-semibold text-amber-400">${q.paper_size}</td>
-                            <td class="py-3">${q.copy_number} of ${q.total_copies}</td>
-                            <td class="py-3">
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${q.status === 'PRINTING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse' : 'bg-slate-800 text-slate-300'}">
-                                    ${q.status}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('');
+                if (qBody) {
+                    if (!data.queue || data.queue.length === 0) {
+                        qBody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">Queue is idle. Waiting for prints.</td></tr>';
+                    } else {
+                        qBody.innerHTML = data.queue.map(q => `
+                            <tr class="hover:bg-slate-800/30">
+                                <td class="py-3 font-mono font-bold text-slate-300">#${q.id}</td>
+                                <td class="py-3 text-slate-300">${(q.order_id || '').substring(0, 15)}...</td>
+                                <td class="py-3 text-slate-300 truncate max-w-[140px]">${q.original_filename || 'Photo'}</td>
+                                <td class="py-3 font-semibold text-amber-400">${q.paper_size}</td>
+                                <td class="py-3">${q.copy_number} of ${q.total_copies}</td>
+                                <td class="py-3">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${q.status === 'PRINTING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse' : 'bg-slate-800 text-slate-300'}">
+                                        ${q.status}
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
                 }
 
                 // Recent Orders Table with Customer Name and Phone
                 const oBody = document.getElementById('ordersTableBody');
-                oBody.innerHTML = data.recent_orders.map(o => `
-                    <tr class="hover:bg-slate-800/30">
-                        <td class="py-3 font-mono font-bold text-slate-200">${o.id.substring(0, 16)}</td>
-                        <td class="py-3">
-                            <div class="font-bold text-slate-100">${o.customer_name || 'Customer'}</div>
-                            ${o.customer_phone ? `<div class="text-[11px] text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-amber-400/80 mr-1"></i>${o.customer_phone}</div>` : '<span class="text-[11px] text-slate-500">No phone</span>'}
-                        </td>
-                        <td class="py-3 font-bold text-emerald-400">₹${o.total_amount}</td>
-                        <td class="py-3 text-slate-300">${o.total_prints} prints</td>
-                        <td class="py-3">
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
-                                (o.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
-                                'bg-amber-500/20 text-amber-400 border border-amber-500/30')
-                            }">
-                                ${o.status === 'PENDING' && o.error_message ? 'PENDING (RETRY)' : o.status}
-                            </span>
-                            ${o.error_message ? `<div class="text-[10px] text-rose-400 mt-0.5 truncate max-w-[140px]" title="${o.error_message}">${o.error_message}</div>` : ''}
-                        </td>
-                        <td class="py-3 text-slate-400">${o.created_at}</td>
-                        <td class="py-3 text-right">
-                            <button onclick="reprintOrder('${o.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700">
-                                <i class="fa-solid fa-redo mr-1"></i> Reprint
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
+                if (oBody) {
+                    if (!data.recent_orders || data.recent_orders.length === 0) {
+                        oBody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500">No customer orders recorded yet. Completed orders will appear here automatically.</td></tr>';
+                    } else {
+                        oBody.innerHTML = data.recent_orders.map(o => `
+                            <tr class="hover:bg-slate-800/30">
+                                <td class="py-3 font-mono font-bold text-slate-200">${(o.id || '').substring(0, 16)}</td>
+                                <td class="py-3">
+                                    <div class="font-bold text-slate-100">${o.customer_name || 'Customer'}</div>
+                                    ${o.customer_phone ? `<div class="text-[11px] text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-amber-400/80 mr-1"></i>${o.customer_phone}</div>` : '<span class="text-[11px] text-slate-500">No phone</span>'}
+                                </td>
+                                <td class="py-3 font-bold text-emerald-400">₹${o.total_amount}</td>
+                                <td class="py-3 text-slate-300">${o.total_prints} prints</td>
+                                <td class="py-3">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        o.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+                                        (o.status === 'FAILED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
+                                        'bg-amber-500/20 text-amber-400 border border-amber-500/30')
+                                    }">
+                                        ${o.status === 'PENDING' && o.error_message ? 'PENDING (RETRY)' : o.status}
+                                    </span>
+                                    ${o.error_message ? `<div class="text-[10px] text-rose-400 mt-0.5 truncate max-w-[140px]" title="${o.error_message}">${o.error_message}</div>` : ''}
+                                </td>
+                                <td class="py-3 text-slate-400">${o.created_at || ''}</td>
+                                <td class="py-3 text-right">
+                                    <button onclick="reprintOrder('${o.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700 transition">
+                                        <i class="fa-solid fa-redo mr-1"></i> Reprint
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
 
             } catch (err) {
                 console.error("Failed to fetch admin data", err);
@@ -418,7 +462,7 @@
                 showToast(e.message, false);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-print"></i> <span>Test Print Hardware</span>';
+                btn.innerHTML = '<i class="fa-solid fa-print"></i> <span>Test Print</span>';
             }
         });
 

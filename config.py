@@ -64,7 +64,8 @@ BULK_DISCOUNT_PERCENT = 10.0
 # On Render / cloud hosts, PORT is assigned dynamically via environment variable.
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 5000))
-SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(24).hex())
+SECRET_KEY = os.environ.get("SECRET_KEY", "kiosk-session-secret-katoms-2026")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Katoms@123")
 
 # Cloud Deployment Flag
 IS_CLOUD_DEPLOYMENT = os.environ.get("RENDER") is not None or os.environ.get("IS_CLOUD", "false").lower() == "true"

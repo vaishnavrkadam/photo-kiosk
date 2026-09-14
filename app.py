@@ -3,7 +3,7 @@ import uuid
 import json
 import logging
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, send_file, session
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 
@@ -27,6 +27,16 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'heic', 'bmp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def is_admin_logged_in():
+    return session.get('admin_authenticated') is True
+
+def verify_admin_access():
+    if is_admin_logged_in():
+        return True
+    auth_header = request.headers.get("X-Admin-Password") or request.headers.get("X-Agent-Secret")
+    query_auth = request.args.get("secret") or request.args.get("password")
+    return (auth_header in (config.ADMIN_PASSWORD, config.AGENT_SECRET_KEY)) or (query_auth in (config.ADMIN_PASSWORD, config.AGENT_SECRET_KEY))
 
 # ----------------- Customer UI Pages -----------------
 
@@ -52,7 +62,22 @@ def serve_qr():
 
 @app.route('/admin')
 def admin():
+    if not is_admin_logged_in():
+        return render_template('admin_login.html', error=None)
     return render_template('admin.html', pricing=config.PRICING, default_printer=printer_service.get_active_printer())
+
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    pwd = request.form.get('password', '').strip()
+    if pwd == config.ADMIN_PASSWORD:
+        session['admin_authenticated'] = True
+        return redirect(url_for('admin'))
+    return render_template('admin_login.html', error="Invalid admin password. Please try again.")
+
+@app.route('/admin/logout', methods=['GET', 'POST'])
+def admin_logout():
+    session.pop('admin_authenticated', None)
+    return redirect(url_for('admin'))
 
 # ----------------- Customer API Endpoints -----------------
 
@@ -171,6 +196,9 @@ def public_get_inventory():
 @app.route('/api/admin/inventory', methods=['POST'])
 def admin_set_inventory():
     """Allows admin to update paper stock (sheets_available)."""
+    if not verify_admin_access():
+        return jsonify({'error': 'Unauthorized admin access'}), 401
+
     data = request.get_json() or {}
     if 'paper_size' in data and 'sheets_available' in data:
         update_inventory(data['paper_size'], data['sheets_available'])
@@ -535,6 +563,9 @@ def agent_heartbeat():
 
 @app.route('/api/admin/status', methods=['GET'])
 def get_admin_status():
+    if not verify_admin_access():
+        return jsonify({'error': 'Unauthorized admin access'}), 401
+
     with get_db() as conn:
         recent_orders = conn.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 25").fetchall()
         queue = conn.execute('''
@@ -576,6 +607,9 @@ def get_admin_status():
 
 @app.route('/api/admin/reprint', methods=['POST'])
 def admin_reprint():
+    if not verify_admin_access():
+        return jsonify({'error': 'Unauthorized admin access'}), 401
+
     data = request.get_json() or {}
     order_id = data.get('order_id')
     if not order_id:
@@ -586,6 +620,9 @@ def admin_reprint():
 @app.route('/api/admin/test-print', methods=['POST'])
 def admin_test_print():
     """Generates a test card and prints it to verify PM-520 hardware connection."""
+    if not verify_admin_access():
+        return jsonify({'error': 'Unauthorized admin access'}), 401
+
     test_img_path = os.path.join(app.config['PROCESSED_FOLDER'], "hardware_test_card.jpg")
     
     # Generate test card with color bars and timestamp
